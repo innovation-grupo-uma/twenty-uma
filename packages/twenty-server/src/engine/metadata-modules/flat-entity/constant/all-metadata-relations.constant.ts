@@ -91,11 +91,29 @@ export const ALL_METADATA_RELATIONS = {
     },
     oneToMany: {},
   },
+  navigationMenuItem: {
+    manyToOne: {
+      workspace: null,
+      userWorkspace: null,
+      application: null,
+      targetObjectMetadata: {
+        metadataName: 'objectMetadata',
+        flatEntityForeignKeyAggregator: null,
+        foreignKey: 'targetObjectMetadataId',
+      },
+      folder: {
+        metadataName: 'navigationMenuItem',
+        flatEntityForeignKeyAggregator: null,
+        foreignKey: 'folderId',
+      },
+    },
+    oneToMany: {},
+  },
   fieldMetadata: {
     manyToOne: {
       object: {
         metadataName: 'objectMetadata',
-        flatEntityForeignKeyAggregator: 'fieldMetadataIds',
+        flatEntityForeignKeyAggregator: 'fieldIds',
         foreignKey: 'objectMetadataId',
       },
       workspace: null,

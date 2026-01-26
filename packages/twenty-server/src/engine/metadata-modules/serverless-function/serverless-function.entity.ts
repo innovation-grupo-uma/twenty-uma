@@ -13,6 +13,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
+import { type JsonbProperty } from 'src/engine/workspace-manager/workspace-migration/universal-flat-entity/types/jsonb-property.type';
 import { CronTriggerEntity } from 'src/engine/metadata-modules/cron-trigger/entities/cron-trigger.entity';
 import { DatabaseEventTriggerEntity } from 'src/engine/metadata-modules/database-event-trigger/entities/database-event-trigger.entity';
 import { RouteTriggerEntity } from 'src/engine/metadata-modules/route-trigger/route-trigger.entity';
@@ -26,7 +27,8 @@ export enum ServerlessFunctionRuntime {
   NODE22 = 'nodejs22.x',
 }
 
-export const DEFAULT_HANDLER_PATH = 'src/index.ts';
+export const DEFAULT_SOURCE_HANDLER_PATH = 'src/index.ts';
+export const DEFAULT_BUILT_HANDLER_PATH = 'index.mjs';
 export const DEFAULT_HANDLER_NAME = 'main';
 
 @Entity('serverlessFunction')
@@ -42,8 +44,11 @@ export class ServerlessFunctionEntity
   @Column({ nullable: false })
   name: string;
 
-  @Column({ nullable: false, default: DEFAULT_HANDLER_PATH })
-  handlerPath: string;
+  @Column({ nullable: false, default: DEFAULT_SOURCE_HANDLER_PATH })
+  sourceHandlerPath: string;
+
+  @Column({ nullable: false, default: DEFAULT_BUILT_HANDLER_PATH })
+  builtHandlerPath: string;
 
   @Column({ nullable: false, default: DEFAULT_HANDLER_NAME })
   handlerName: string;
@@ -55,7 +60,7 @@ export class ServerlessFunctionEntity
   latestVersion: string | null;
 
   @Column({ nullable: false, type: 'jsonb', default: [] })
-  publishedVersions: string[];
+  publishedVersions: JsonbProperty<string[]>;
 
   @Column({ nullable: false, default: ServerlessFunctionRuntime.NODE22 })
   runtime: ServerlessFunctionRuntime;
@@ -68,7 +73,7 @@ export class ServerlessFunctionEntity
   checksum: string | null;
 
   @Column({ nullable: true, type: 'jsonb' })
-  toolInputSchema: object | null;
+  toolInputSchema: JsonbProperty<object> | null;
 
   @Column({ nullable: false, default: false })
   isTool: boolean;

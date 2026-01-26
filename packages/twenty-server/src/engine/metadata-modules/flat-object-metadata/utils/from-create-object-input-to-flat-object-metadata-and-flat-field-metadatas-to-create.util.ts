@@ -69,7 +69,7 @@ export const fromCreateObjectInputToFlatObjectMetadataAndFlatFieldMetadatasToCre
       nameField?.id ?? defaultFlatFieldForCustomObjectMaps.fields.idField.id;
 
     const flatObjectMetadataToCreate: FlatObjectMetadata = {
-      fieldMetadataIds: [],
+      fieldIds: [],
       viewIds: [],
       indexMetadataIds: [],
       createdAt,
@@ -96,8 +96,7 @@ export const fromCreateObjectInputToFlatObjectMetadataAndFlatFieldMetadatasToCre
       standardId: createObjectInput.standardId ?? null,
       standardOverrides: null,
       applicationId: workspaceCustomApplicationId,
-      universalIdentifier:
-        createObjectInput.universalIdentifier ?? objectMetadataId,
+      universalIdentifier: createObjectInput.universalIdentifier ?? v4(),
       targetTableName: 'DEPRECATED',
       workspaceId,
     };

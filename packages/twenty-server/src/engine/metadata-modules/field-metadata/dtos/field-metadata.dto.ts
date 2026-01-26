@@ -27,9 +27,8 @@ import {
   type FieldMetadataOptions,
   type FieldMetadataSettings,
   FieldMetadataType,
+  type FieldMetadataDefaultValue,
 } from 'twenty-shared/types';
-
-import { type FieldMetadataDefaultValue } from 'src/engine/metadata-modules/field-metadata/interfaces/field-metadata-default-value.interface';
 
 import { UUIDScalarType } from 'src/engine/api/graphql/workspace-schema-builder/graphql-types/scalars';
 import { IsValidMetadataName } from 'src/engine/decorators/metadata/is-valid-metadata-name.decorator';
@@ -166,7 +165,6 @@ export class FieldMetadataDTO<T extends FieldMetadataType = FieldMetadataType> {
   @Field()
   updatedAt: Date;
 
-  // TODO prastoin make non nullable once MakeFieldMetadataUniversalIdentifierAndApplicationIdNotNullableMigrationCommand has passed in production  @Field(() => UUIDScalarType, { nullable: true })
-  @Field(() => UUIDScalarType, { nullable: true })
-  applicationId?: string;
+  @Field(() => UUIDScalarType)
+  applicationId: string;
 }

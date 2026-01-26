@@ -10,15 +10,16 @@ import { NoPermissionGuard } from 'src/engine/guards/no-permission.guard';
 import { SettingsPermissionGuard } from 'src/engine/guards/settings-permission.guard';
 import { WorkspaceAuthGuard } from 'src/engine/guards/workspace-auth.guard';
 import { CreateFrontComponentInput } from 'src/engine/metadata-modules/front-component/dtos/create-front-component.input';
+import { FrontComponentCodeDTO } from 'src/engine/metadata-modules/front-component/dtos/front-component-code.dto';
 import { FrontComponentDTO } from 'src/engine/metadata-modules/front-component/dtos/front-component.dto';
 import { UpdateFrontComponentInput } from 'src/engine/metadata-modules/front-component/dtos/update-front-component.input';
 import { FrontComponentService } from 'src/engine/metadata-modules/front-component/front-component.service';
 import { FrontComponentGraphqlApiExceptionInterceptor } from 'src/engine/metadata-modules/front-component/interceptors/front-component-graphql-api-exception.interceptor';
-import { WorkspaceMigrationBuilderGraphqlApiExceptionInterceptor } from 'src/engine/workspace-manager/workspace-migration/interceptors/workspace-migration-builder-graphql-api-exception.interceptor';
+import { WorkspaceMigrationGraphqlApiExceptionInterceptor } from 'src/engine/workspace-manager/workspace-migration/interceptors/workspace-migration-graphql-api-exception.interceptor';
 
 @UseGuards(WorkspaceAuthGuard)
 @UseInterceptors(
-  WorkspaceMigrationBuilderGraphqlApiExceptionInterceptor,
+  WorkspaceMigrationGraphqlApiExceptionInterceptor,
   FrontComponentGraphqlApiExceptionInterceptor,
 )
 @Resolver(() => FrontComponentDTO)
@@ -40,6 +41,18 @@ export class FrontComponentResolver {
     @AuthWorkspace() workspace: WorkspaceEntity,
   ): Promise<FrontComponentDTO | null> {
     return await this.frontComponentService.findById(id, workspace.id);
+  }
+
+  @Query(() => FrontComponentCodeDTO)
+  @UseGuards(NoPermissionGuard)
+  async getFrontComponentCode(
+    @Args('id', { type: () => UUIDScalarType }) id: string,
+    @AuthWorkspace() workspace: WorkspaceEntity,
+  ): Promise<FrontComponentCodeDTO> {
+    return await this.frontComponentService.getFrontComponentCode(
+      id,
+      workspace.id,
+    );
   }
 
   @Mutation(() => FrontComponentDTO)
