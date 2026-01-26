@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(test:*)",
+      "WebFetch(domain:docs.twenty.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:twenty.mintlify.app)"
+    ]
+  }
+}
