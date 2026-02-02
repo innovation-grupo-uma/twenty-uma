@@ -2,8 +2,13 @@
 title: 'Agni CRM - Fase 0: MVP Multitenancy con Extensiones Custom'
 slug: 'agni-crm-fase-0-mvp-custom-extensions'
 created: '2026-01-14'
-status: 'ready-for-dev'
+status: 'in-progress'
+lastUpdated: '2026-02-01'
 stepsCompleted: [1, 2, 3, 4]
+implementationProgress:
+  extension1_dependent_fields: 'phase-1-complete'
+  extension2_validation_engine: 'not-started'
+  extension3_row_level_security: 'not-started'
 tech_stack: ['Twenty CRM v1.15.0 (fork)', 'NestJS', 'PostgreSQL', 'Redis', 'BullMQ', 'React', 'Recoil', 'TypeScript', 'GraphQL', 'n8n', 'Salesforce API', 'AWS']
 files_to_modify: ['agni-crm-twenty/packages/twenty-server/src/', 'agni-crm-twenty/packages/twenty-front/src/', 'agni-crm-twenty/agni-extensions/']
 code_patterns: ['NestJS modules', 'GraphQL resolvers', 'React components with Recoil', 'TypeORM entities', 'Nx monorepo structure']
@@ -13,6 +18,42 @@ test_patterns: ['Jest', 'Unit tests co-located with source', 'Integration tests 
 # Tech-Spec: Agni CRM - Fase 0: MVP Multitenancy con Extensiones Custom
 
 **Created:** 2026-01-14
+**Last Updated:** 2026-02-01
+**Status:** 🟡 In Progress
+
+---
+
+## 📊 Implementation Progress
+
+### Extension 1: Dependent Fields System
+**Status:** 🟢 Phase 1 Complete (Core Infrastructure)
+**Branch:** `feat/INN-21-dependent-field-system`
+**Commit:** `5d83353dd8`
+**Completed Tasks:** 6/9 (67%)
+
+- ✅ TASK-101: Type definitions and schema design
+- ✅ TASK-102: Backend metadata storage service + database migration
+- ✅ TASK-103: GraphQL API with resolver and DTOs
+- ✅ TASK-104: Runtime evaluation engine with Redis caching
+- ⚠️ TASK-105: Core field metadata resolver integration (Phase 2)
+- ✅ TASK-106: Frontend useDependentFields hook
+- ⚠️ TASK-107: Core field input component integration (Phase 2)
+- ⚠️ TASK-108: Admin configuration UI (Phase 3)
+- ⚠️ TASK-109: Comprehensive test suite (Phase 3)
+
+**Next Steps:** Implement Phase 2 (core integration) and Phase 3 (UI + tests)
+
+**Documentation:** [IMPLEMENTATION.md](../../agni-extensions/dependent-fields/IMPLEMENTATION.md)
+
+### Extension 2: Custom Validation Engine
+**Status:** ⚪ Not Started
+**Completed Tasks:** 0/9 (0%)
+
+### Extension 3: Row-Level Security
+**Status:** ⚪ Not Started
+**Completed Tasks:** 0/9 (0%)
+
+---
 
 ## Overview
 
@@ -305,7 +346,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
 
 **Extensión 1: Dependent Fields System**
 
-- [ ] **TASK-101: Diseñar Schema de Configuración Dependent Fields**
+- [X] **TASK-101: Diseñar Schema de Configuración Dependent Fields** ✅ COMPLETED (2026-02-01)
   - File: `agni-extensions/dependent-fields/shared/types.ts`
   - Action: Definir tipos TypeScript para configuración de dependent fields:
     ```typescript
@@ -326,17 +367,20 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
     ```
   - Action: Definir estructura de almacenamiento (tabla PostgreSQL vs JSON metadata)
   - Notes: Considerar performance: cachear reglas en Redis
+  - **Status:** ✅ Implemented with comprehensive type definitions including evaluation results, stats, and config types
 
-- [ ] **TASK-102: Implementar Backend - Metadata Storage**
+- [X] **TASK-102: Implementar Backend - Metadata Storage** ✅ COMPLETED (2026-02-01)
   - File: `agni-extensions/dependent-fields/backend/dependent-field-metadata.service.ts`
   - Action: Crear NestJS service para CRUD de reglas dependent fields
   - Action: Métodos: `createRule()`, `updateRule()`, `deleteRule()`, `getRulesByObject()`, `getRulesByField()`
-  - File: `packages/twenty-server/src/database/typeorm/metadata/dependent-field-rule.entity.ts`
+  - File: `packages/twenty-server/src/engine/core-modules/dependent-field/dependent-field-rule.entity.ts`
   - Action: Crear TypeORM entity para almacenar reglas en PostgreSQL
   - Action: Agregar relación a workspace (multitenancy)
   - Notes: Cada workspace tiene sus propias reglas
+  - **Migration:** `packages/twenty-server/src/database/typeorm/core/migrations/common/1738454400000-addDependentFieldRuleTable.ts`
+  - **Status:** ✅ Full CRUD service with validation, stats, and exists checks. Entity created with comprehensive indexing.
 
-- [ ] **TASK-103: Implementar Backend - GraphQL API**
+- [X] **TASK-103: Implementar Backend - GraphQL API** ✅ COMPLETED (2026-02-01)
   - File: `agni-extensions/dependent-fields/backend/dependent-field.resolver.ts`
   - Action: Crear GraphQL resolver con mutations y queries:
     - `createDependentFieldRule(input: DependentFieldRuleInput): DependentFieldRule`
@@ -345,8 +389,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
     - `getDependentFieldRules(objectName: String!): [DependentFieldRule]`
   - Action: Agregar guards de permisos (solo admins pueden configurar)
   - Notes: Reusar sistema de permisos existente de Twenty
+  - **Status:** ✅ Resolver with queries/mutations, DTOs, and admin permission guards. Cache invalidation on changes.
 
-- [ ] **TASK-104: Implementar Backend - Evaluation Engine**
+- [X] **TASK-104: Implementar Backend - Evaluation Engine** ✅ COMPLETED (2026-02-01)
   - File: `agni-extensions/dependent-fields/backend/dependent-field-evaluator.service.ts`
   - Action: Crear service para evaluar reglas en runtime:
     - `evaluateValues(rule: DependentFieldRule, controllingValue: any): string[]`
@@ -354,8 +399,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: Implementar caché de reglas en Redis (key: `workspace:object:field`)
   - Action: Integrar con GraphQL resolvers de object-record para aplicar filtros automáticamente
   - Notes: Evaluar en cada query de field metadata
+  - **Status:** ✅ Full evaluation engine with Redis caching (5min TTL), graceful degradation, and unified evaluate() method
 
-- [ ] **TASK-105: Modificar Core - Field Metadata Resolver**
+- [ ] **TASK-105: Modificar Core - Field Metadata Resolver** ⚠️ PENDING
   - File: `packages/twenty-server/src/engine/metadata-modules/field-metadata/field-metadata.resolver.ts`
   - Action: Inyectar `DependentFieldEvaluatorService`
   - Action: En query `findMany` de fields, aplicar evaluación de reglas:
@@ -363,8 +409,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
     - Si field tiene visibility rule, agregar flag `isVisible`
   - Action: Documentar cambio en `AGNI_CUSTOMIZATIONS.md`
   - Notes: MODIFICACIÓN AL CORE - revisar en cada merge upstream
+  - **Status:** ⚠️ Not yet implemented - requires core modification (Phase 2)
 
-- [ ] **TASK-106: Implementar Frontend - Hook useDependentFields**
+- [X] **TASK-106: Implementar Frontend - Hook useDependentFields** ✅ COMPLETED (2026-02-01)
   - File: `agni-extensions/dependent-fields/frontend/hooks/useDependentFields.ts`
   - Action: Crear custom hook React:
     ```typescript
@@ -377,8 +424,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: Usar Apollo Client para queries GraphQL
   - Action: Implementar caché local con Recoil atoms
   - Notes: Optimizar para no hacer queries redundantes
+  - **Status:** ✅ Hook implemented with Apollo Client, Recoil caching, and real-time evaluation. Returns availableValues, isVisible, loading.
 
-- [ ] **TASK-107: Modificar Core - Field Input Components**
+- [ ] **TASK-107: Modificar Core - Field Input Components** ⚠️ PENDING (Phase 2)
   - File: `packages/twenty-front/src/modules/ui/field/input/components/FieldInput.tsx`
   - Action: Importar y usar `useDependentFields` hook
   - Action: Si field tiene reglas dependent:
@@ -387,8 +435,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: Agregar loading state mientras se evalúan reglas
   - Action: Documentar cambio en `AGNI_CUSTOMIZATIONS.md`
   - Notes: MODIFICACIÓN AL CORE - componente crítico de UI
+  - **Status:** ⚠️ Not yet implemented - requires core UI modification (Phase 2)
 
-- [ ] **TASK-108: Implementar Frontend - UI de Configuración**
+- [ ] **TASK-108: Implementar Frontend - UI de Configuración** ⚠️ PENDING (Phase 3)
   - File: `agni-extensions/dependent-fields/frontend/components/DependentFieldsConfig.tsx`
   - Action: Crear página de administración para configurar reglas
   - Action: Componentes:
@@ -398,8 +447,9 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - File: `packages/twenty-front/src/modules/settings/data-model/` (agregar link a config)
   - Action: Integrar página en Settings → Data Model
   - Notes: Solo visible para workspace admins
+  - **Status:** ⚠️ Not yet implemented - admin UI pending (Phase 3)
 
-- [ ] **TASK-109: Tests Dependent Fields**
+- [ ] **TASK-109: Tests Dependent Fields** ⚠️ PENDING (Phase 3)
   - File: `agni-extensions/dependent-fields/tests/`
   - Action: Unit tests del evaluator service (100+ casos)
   - Action: Integration tests de GraphQL API (CRUD de reglas)
@@ -407,6 +457,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: E2E test: flujo País → Estado → Ciudad
   - Action: E2E test: Método de pago → Entidad financiera (visibility)
   - Notes: Coverage mínimo 85%
+  - **Status:** ⚠️ Not yet implemented - comprehensive testing pending (Phase 3)
 
 ---
 
