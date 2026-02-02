@@ -6,6 +6,7 @@ This document tracks all customizations made to the Twenty CRM codebase for the 
 
 - [Custom Extensions](#custom-extensions)
 - [Core Modifications](#core-modifications)
+- [CI/CD Configuration](#cicd-configuration)
 - [Compatibility Information](#compatibility-information)
 - [Maintenance Guidelines](#maintenance-guidelines)
 - [Update History](#update-history)
@@ -229,6 +230,69 @@ This section documents all direct modifications to Twenty's core packages (`pack
 **Migrations:** *(To be documented when implemented)*
 - Migration files will be created in `packages/twenty-server/src/database/typeorm/core/migrations/common/`
 - Follow Twenty's migration naming convention
+
+---
+
+## CI/CD Configuration
+
+### AWS CodePipeline Setup
+**Location:** `aws-codepipeline/`
+
+**Purpose:** Provides AWS-native CI/CD pipeline replacing GitHub Actions for build, test, and deployment automation.
+
+**Components:**
+- **`buildspec.yml`**: Main CI buildspec for linting, type-checking, unit tests, and builds
+- **`buildspec-integration-tests.yml`**: Integration tests with PostgreSQL and Redis
+- **`codepipeline-template.yaml`**: CloudFormation template for pipeline infrastructure
+- **`deploy-pipeline.sh`**: Automated deployment script
+
+**Pipeline Stages:**
+1. **Source**: Pulls code from GitHub via webhook (triggers on push to `main`)
+2. **Build**: Runs comprehensive CI (lint, typecheck, test, build) for Twenty + extensions
+3. **Integration Tests**: Runs backend integration tests with database
+4. **Manual Approval**: Optional approval gate before deployment
+
+**Branching Strategy:**
+- Trunk-based development with `main` as the primary branch
+- Pipeline triggers automatically on every push/merge to `main`
+- Feature branches do not trigger the pipeline (optional: add GitHub Actions for PR checks)
+- See [TRUNK_BASED_WORKFLOW.md](aws-codepipeline/TRUNK_BASED_WORKFLOW.md) for detailed workflow
+
+**Key Features:**
+- Parallel execution of tests across packages
+- Caching of dependencies (Yarn, Nx, node_modules)
+- CloudWatch logging and monitoring
+- SNS notifications on failures
+- S3 artifact storage with lifecycle policies
+
+**Status:** ✅ Configured and ready to deploy
+
+**Documentation:** See [aws-codepipeline/README.md](aws-codepipeline/README.md) and [aws-codepipeline/SETUP_GUIDE.md](aws-codepipeline/SETUP_GUIDE.md)
+
+**Setup Command:**
+```bash
+cd aws-codepipeline
+./deploy-pipeline.sh
+```
+
+**Key Differences from GitHub Actions:**
+- Uses AWS CodeBuild instead of GitHub-hosted runners
+- Logs stored in CloudWatch instead of GitHub UI
+- Artifacts stored in S3 instead of GitHub artifacts
+- Better integration with AWS services (ECS, ECR, etc.)
+
+**Testing Strategy:**
+- All Twenty CRM tests (unit + integration)
+- Custom extension tests (dependent-fields, validation-engine, row-level-security)
+- GraphQL schema validation
+- Database migration checks
+
+**Cost:** ~$158/month for 10 builds/day (300 builds/month)
+
+**Monitoring:**
+- CloudWatch Logs: `/aws/codebuild/agni-crm-ci`
+- CloudWatch Alarms: Pipeline failure, Build failure
+- SNS notifications to configured email
 
 ---
 
