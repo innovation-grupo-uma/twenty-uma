@@ -1,0 +1,32 @@
+# AWS CodePipeline - Sensitive files
+
+# Local deployment configs
+*.local
+*.secret
+
+# AWS credentials (never commit these!)
+credentials
+config
+.aws/
+
+# CloudFormation stack outputs
+stack-outputs.json
+outputs.txt
+
+# Backup files
+*.bak
+*.backup
+
+# Logs
+*.log
+logs/
+
+# Terraform state (if used in future)
+*.tfstate
+*.tfstate.backup
+.terraform/
+
+# Environment files
+.env
+.env.local
+.env.production

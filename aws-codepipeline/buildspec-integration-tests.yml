@@ -1,0 +1,139 @@
+version: 0.2
+
+# AWS CodeBuild buildspec for Integration Tests
+# This buildspec runs backend integration tests with database reset
+
+env:
+  variables:
+    NODE_ENV: "test"
+    ANALYTICS_ENABLED: "true"
+    NODE_OPTIONS: "--max-old-space-size=8192"
+    # Database configuration
+    PG_DATABASE_URL: "postgres://postgres:postgres@localhost:5432/test"
+    REDIS_URL: "redis://localhost:6379"
+  parameter-store:
+    POSTGRES_ADMIN_PASSWORD: "/agni-crm/ci/postgres-password"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+      docker: 20
+    commands:
+      - echo "Installing system dependencies..."
+      - apt-get update
+      - apt-get install -y postgresql-client redis-tools docker-compose
+
+      - echo "Installing Yarn..."
+      - corepack enable
+      - corepack prepare yarn@stable --activate
+
+  pre_build:
+    commands:
+      - echo "Starting database services..."
+
+      # Start PostgreSQL in Docker
+      - |
+        docker run -d \
+          --name postgres-test \
+          -e POSTGRES_PASSWORD=postgres \
+          -e POSTGRES_USER=postgres \
+          -e POSTGRES_DB=postgres \
+          -p 5432:5432 \
+          --health-cmd="pg_isready -U postgres" \
+          --health-interval=10s \
+          --health-timeout=5s \
+          --health-retries=5 \
+          twentycrm/twenty-postgres-spilo:latest
+
+      # Start Redis in Docker
+      - |
+        docker run -d \
+          --name redis-test \
+          -p 6379:6379 \
+          redis:7-alpine
+
+      # Wait for services to be healthy
+      - echo "Waiting for PostgreSQL to be ready..."
+      - |
+        for i in {1..30}; do
+          if docker exec postgres-test pg_isready -U postgres; then
+            echo "PostgreSQL is ready!"
+            break
+          fi
+          echo "Waiting for PostgreSQL... ($i/30)"
+          sleep 2
+        done
+
+      - echo "Waiting for Redis to be ready..."
+      - sleep 5
+
+      # Install Node dependencies
+      - echo "Installing project dependencies..."
+      - yarn install --immutable
+
+      # Build dependencies
+      - echo "Building dependencies..."
+      - npx nx build twenty-shared
+      - npx nx build twenty-emails
+
+  build:
+    commands:
+      - echo "Integration tests build phase started on `date`"
+
+      # Set up test environment
+      - echo "Setting up test environment..."
+      - |
+        cat > .env.test <<EOF
+        NODE_ENV=test
+        PG_DATABASE_URL=postgres://postgres:postgres@localhost:5432/test
+        REDIS_URL=redis://localhost:6379
+        ANALYTICS_ENABLED=true
+        IS_BILLING_ENABLED=true
+        BILLING_STRIPE_API_KEY=test-api-key
+        BILLING_STRIPE_BASE_PLAN_PRODUCT_ID=test-base-plan-product-id
+        BILLING_STRIPE_WEBHOOK_SECRET=test-webhook-secret
+        BILLING_PLAN_REQUIRED_LINK=http://localhost:3001/stripe-redirection
+        EOF
+
+      # Build server
+      - echo "Building server..."
+      - npx nx build twenty-server
+
+      # Create test database
+      - echo "Creating test database..."
+      - docker exec postgres-test psql -U postgres -c 'CREATE DATABASE "test";' || true
+
+      # Run integration tests
+      - echo "Running integration tests..."
+      - npx nx run-many --target=test:integration --projects=tag:scope:backend --configuration=with-db-reset --parallel=1 --ci
+
+      # Run extension integration tests (when implemented)
+      - echo "Running extension integration tests..."
+      # - npx nx test:integration agni-dependent-fields || echo "Extension not yet implemented"
+      # - npx nx test:integration agni-validation-engine || echo "Extension not yet implemented"
+      # - npx nx test:integration agni-row-level-security || echo "Extension not yet implemented"
+
+  post_build:
+    commands:
+      - echo "Cleaning up..."
+      - docker stop postgres-test redis-test || true
+      - docker rm postgres-test redis-test || true
+      - echo "Integration tests completed on `date`"
+
+artifacts:
+  files:
+    - 'packages/twenty-server/coverage/**/*'
+  name: integration-test-results-$(date +%Y%m%d-%H%M%S)
+
+reports:
+  integration-test-results:
+    files:
+      - 'packages/twenty-server/coverage/lcov.info'
+    file-format: 'CLOVERXML'
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '.yarn/cache/**/*'
+    - '.nx/cache/**/*'

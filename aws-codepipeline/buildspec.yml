@@ -1,0 +1,192 @@
+version: 0.2
+
+# AWS CodeBuild buildspec for Agni CRM CI/CD
+# This buildspec runs tests, linting, type-checking, and builds for the entire monorepo
+
+env:
+  variables:
+    NODE_ENV: "test"
+    REACT_APP_SERVER_BASE_URL: "http://localhost:3000"
+    NODE_OPTIONS: "--max-old-space-size=8192"
+  parameter-store:
+    # Store these in AWS Systems Manager Parameter Store
+    POSTGRES_PASSWORD: "/agni-crm/ci/postgres-password"
+    REDIS_URL: "/agni-crm/ci/redis-url"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+      python: 3.x
+    commands:
+      - echo "Installing system dependencies..."
+      - apt-get update
+      - apt-get install -y postgresql-client redis-tools
+
+      - echo "Node version:"
+      - node --version
+
+      - echo "Installing Yarn..."
+      - corepack enable
+      - corepack prepare yarn@stable --activate
+
+      - echo "Yarn version:"
+      - yarn --version
+
+  pre_build:
+    commands:
+      - echo "Pre-build phase started on `date`"
+
+      # Install Node dependencies
+      - echo "Installing project dependencies..."
+      - yarn install --immutable
+
+      # Set up environment files
+      - echo "Setting up environment files..."
+      - cp packages/twenty-front/.env.example packages/twenty-front/.env || true
+      - npx nx reset:env twenty-front
+      - npx nx reset:env twenty-server
+
+      # Check system resources
+      - echo "Checking system resources..."
+      - free -h
+      - df -h
+
+  build:
+    commands:
+      - echo "Build phase started on `date`"
+
+      # ===================================
+      # 1. SHARED DEPENDENCIES BUILD
+      # ===================================
+      - echo "Building shared dependencies..."
+      - npx nx build twenty-shared
+      - npx nx build twenty-ui
+
+      # ===================================
+      # 2. BACKEND - LINT & TYPECHECK
+      # ===================================
+      - echo "Running backend linting and type-checking..."
+      - npx nx run-many --target=lint --projects=tag:scope:backend --parallel=3
+      - npx nx run-many --target=typecheck --projects=tag:scope:backend --parallel=3
+
+      # ===================================
+      # 3. FRONTEND - LINT & TYPECHECK
+      # ===================================
+      - echo "Running frontend linting and type-checking..."
+      - npx nx run-many --target=lint --projects=tag:scope:frontend --parallel=3
+      - npx nx run-many --target=typecheck --projects=tag:scope:frontend --parallel=3
+
+      # ===================================
+      # 4. BACKEND - UNIT TESTS
+      # ===================================
+      - echo "Running backend unit tests..."
+      - npx nx run-many --target=test --projects=tag:scope:backend --parallel=2 --ci
+
+      # ===================================
+      # 5. FRONTEND - UNIT TESTS
+      # ===================================
+      - echo "Running frontend unit tests..."
+      - npx nx test twenty-front --ci --coverage
+
+      # ===================================
+      # 6. BACKEND - BUILD
+      # ===================================
+      - echo "Building backend..."
+      - npx nx build twenty-server
+      - npx nx build twenty-emails
+
+      # ===================================
+      # 7. FRONTEND - BUILD
+      # ===================================
+      - echo "Building frontend..."
+      - NODE_ENV=production npx nx build twenty-front
+
+      # ===================================
+      # 8. CUSTOM EXTENSIONS - TESTS
+      # ===================================
+      - echo "Running tests for custom extensions..."
+      # Note: Uncomment these when extensions are implemented
+      # - npx nx test agni-dependent-fields || echo "Extension not yet implemented"
+      # - npx nx test agni-validation-engine || echo "Extension not yet implemented"
+      # - npx nx test agni-row-level-security || echo "Extension not yet implemented"
+
+      # ===================================
+      # 9. GRAPHQL SCHEMA VALIDATION
+      # ===================================
+      - echo "Validating GraphQL schema generation..."
+      - npx nx run twenty-front:graphql:generate
+      - npx nx run twenty-front:graphql:generate --configuration=metadata
+      - |
+        if ! git diff --quiet -- packages/twenty-front/src/generated packages/twenty-front/src/generated-metadata; then
+          echo "ERROR: GraphQL schema changes detected. Please regenerate and commit."
+          git diff -- packages/twenty-front/src/generated packages/twenty-front/src/generated-metadata
+          exit 1
+        fi
+
+      # ===================================
+      # 10. DATABASE MIGRATION CHECK
+      # ===================================
+      - echo "Checking for pending database migrations..."
+      - |
+        CORE_MIGRATION_OUTPUT=$(npx nx run twenty-server:typeorm migration:generate core-migration-check -d src/database/typeorm/core/core.datasource.ts || true)
+        CORE_MIGRATION_FILE=$(ls packages/twenty-server/*core-migration-check.ts 2>/dev/null || echo "")
+        if [ -n "$CORE_MIGRATION_FILE" ]; then
+          echo "ERROR: Unexpected migration files generated. Please create a proper migration manually."
+          rm -f packages/twenty-server/*core-migration-check.ts
+          exit 1
+        fi
+
+  post_build:
+    commands:
+      - echo "Post-build phase started on `date`"
+      - echo "CI build completed successfully!"
+
+      # Generate build info
+      - |
+        cat > build-info.json <<EOF
+        {
+          "buildId": "$CODEBUILD_BUILD_ID",
+          "buildNumber": "$CODEBUILD_BUILD_NUMBER",
+          "sourceVersion": "$CODEBUILD_RESOLVED_SOURCE_VERSION",
+          "buildTime": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "branch": "$CODEBUILD_WEBHOOK_HEAD_REF"
+        }
+        EOF
+      - cat build-info.json
+
+artifacts:
+  files:
+    # Backend artifacts
+    - 'packages/twenty-server/dist/**/*'
+    - 'packages/twenty-server/package.json'
+    - 'packages/twenty-server/.env.example'
+
+    # Frontend artifacts
+    - 'packages/twenty-front/build/**/*'
+
+    # Shared artifacts
+    - 'packages/twenty-shared/dist/**/*'
+    - 'packages/twenty-emails/dist/**/*'
+
+    # Build info
+    - 'build-info.json'
+
+    # Root config files
+    - 'package.json'
+    - 'yarn.lock'
+  name: agni-crm-build-$(date +%Y%m%d-%H%M%S)
+
+cache:
+  paths:
+    - 'node_modules/**/*'
+    - '.yarn/cache/**/*'
+    - 'packages/*/node_modules/**/*'
+    - '.nx/cache/**/*'
+
+reports:
+  test-results:
+    files:
+      - 'packages/twenty-server/coverage/lcov.info'
+      - 'packages/twenty-front/coverage/lcov.info'
+    file-format: 'CLOVERXML'

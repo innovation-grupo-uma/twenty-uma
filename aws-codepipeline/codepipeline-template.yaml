@@ -1,0 +1,389 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CodePipeline for Agni CRM - CI/CD Pipeline'
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Description: GitHub repository owner/organization
+    Default: 'innovation-grupo-uma'
+
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+    Default: 'twenty-uma'
+
+  GitHubBranch:
+    Type: String
+    Description: Branch to build
+    Default: 'main'
+
+  GitHubToken:
+    Type: String
+    Description: GitHub Personal Access Token (store in Secrets Manager)
+    NoEcho: true
+
+  BuildComputeType:
+    Type: String
+    Description: CodeBuild compute type
+    Default: 'BUILD_GENERAL1_LARGE'
+    AllowedValues:
+      - BUILD_GENERAL1_SMALL
+      - BUILD_GENERAL1_MEDIUM
+      - BUILD_GENERAL1_LARGE
+      - BUILD_GENERAL1_2XLARGE
+
+  NotificationEmail:
+    Type: String
+    Description: Email for pipeline notifications
+    Default: 'dev-team@agnicrm.com'
+
+Resources:
+  # ==========================================
+  # S3 BUCKET FOR ARTIFACTS
+  # ==========================================
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'agni-crm-pipeline-artifacts-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteOldArtifacts
+            Status: Enabled
+            ExpirationInDays: 30
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  # ==========================================
+  # SNS TOPIC FOR NOTIFICATIONS
+  # ==========================================
+  PipelineNotificationTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: agni-crm-pipeline-notifications
+      DisplayName: Agni CRM Pipeline Notifications
+      Subscription:
+        - Endpoint: !Ref NotificationEmail
+          Protocol: email
+
+  # ==========================================
+  # IAM ROLES
+  # ==========================================
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AgniCRM-CodePipeline-ServiceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AWSCodePipelineFullAccess'
+      Policies:
+        - PolicyName: CodePipelineAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetObjectVersion'
+                  - 's3:GetBucketLocation'
+                  - 's3:ListBucket'
+                Resource:
+                  - !GetAtt ArtifactBucket.Arn
+                  - !Sub '${ArtifactBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - 'codebuild:BatchGetBuilds'
+                  - 'codebuild:StartBuild'
+                Resource:
+                  - !GetAtt CodeBuildProject.Arn
+                  - !GetAtt CodeBuildIntegrationTests.Arn
+              - Effect: Allow
+                Action:
+                  - 'sns:Publish'
+                Resource: !Ref PipelineNotificationTopic
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: AgniCRM-CodeBuild-ServiceRole
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser'
+      Policies:
+        - PolicyName: CodeBuildAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogGroup'
+                  - 'logs:CreateLogStream'
+                  - 'logs:PutLogEvents'
+                Resource: !Sub 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/*'
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 's3:PutObject'
+                  - 's3:GetObjectVersion'
+                Resource:
+                  - !Sub '${ArtifactBucket.Arn}/*'
+              - Effect: Allow
+                Action:
+                  - 'ssm:GetParameters'
+                  - 'ssm:GetParameter'
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/agni-crm/*'
+              - Effect: Allow
+                Action:
+                  - 'ecr:GetAuthorizationToken'
+                  - 'ecr:BatchCheckLayerAvailability'
+                  - 'ecr:GetDownloadUrlForLayer'
+                  - 'ecr:BatchGetImage'
+                  - 'ecr:PutImage'
+                  - 'ecr:InitiateLayerUpload'
+                  - 'ecr:UploadLayerPart'
+                  - 'ecr:CompleteLayerUpload'
+                Resource: '*'
+
+  # ==========================================
+  # CODEBUILD PROJECTS
+  # ==========================================
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: agni-crm-ci-build
+      Description: 'Main CI build for Agni CRM - lint, typecheck, test, build'
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: !Ref BuildComputeType
+        Image: 'aws/codebuild/standard:7.0'
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: AWS_ACCOUNT_ID
+            Value: !Ref AWS::AccountId
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: aws-codepipeline/buildspec.yml
+      TimeoutInMinutes: 60
+      Cache:
+        Type: S3
+        Location: !Sub '${ArtifactBucket}/build-cache'
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: /aws/codebuild/agni-crm-ci
+
+  CodeBuildIntegrationTests:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: agni-crm-integration-tests
+      Description: 'Integration tests for Agni CRM with database'
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_LARGE
+        Image: 'aws/codebuild/standard:7.0'
+        PrivilegedMode: true
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: aws-codepipeline/buildspec-integration-tests.yml
+      TimeoutInMinutes: 45
+      Cache:
+        Type: S3
+        Location: !Sub '${ArtifactBucket}/integration-test-cache'
+      LogsConfig:
+        CloudWatchLogs:
+          Status: ENABLED
+          GroupName: /aws/codebuild/agni-crm-integration-tests
+
+  # ==========================================
+  # CODEPIPELINE
+  # ==========================================
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: agni-crm-pipeline
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref ArtifactBucket
+      Stages:
+        # SOURCE STAGE
+        - Name: Source
+          Actions:
+            - Name: SourceAction
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Provider: GitHub
+                Version: '1'
+              Configuration:
+                Owner: !Ref GitHubOwner
+                Repo: !Ref GitHubRepo
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubToken
+                PollForSourceChanges: false
+              OutputArtifacts:
+                - Name: SourceOutput
+
+        # BUILD STAGE - Main CI
+        - Name: Build
+          Actions:
+            - Name: CI-Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: BuildOutput
+              RunOrder: 1
+
+        # TEST STAGE - Integration Tests
+        - Name: IntegrationTests
+          Actions:
+            - Name: Integration-Tests
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: '1'
+              Configuration:
+                ProjectName: !Ref CodeBuildIntegrationTests
+              InputArtifacts:
+                - Name: SourceOutput
+              OutputArtifacts:
+                - Name: IntegrationTestOutput
+              RunOrder: 1
+
+        # APPROVAL STAGE (Optional - for production deployments)
+        - Name: ManualApproval
+          Actions:
+            - Name: ApproveDeployment
+              ActionTypeId:
+                Category: Approval
+                Owner: AWS
+                Provider: Manual
+                Version: '1'
+              Configuration:
+                NotificationArn: !Ref PipelineNotificationTopic
+                CustomData: 'Please review the build and approve deployment to production'
+
+  # ==========================================
+  # GITHUB WEBHOOK
+  # ==========================================
+  PipelineWebhook:
+    Type: AWS::CodePipeline::Webhook
+    Properties:
+      Name: agni-crm-github-webhook
+      Authentication: GITHUB_HMAC
+      AuthenticationConfiguration:
+        SecretToken: !Ref GitHubToken
+      Filters:
+        - JsonPath: "$.ref"
+          MatchEquals: !Sub 'refs/heads/${GitHubBranch}'
+      TargetPipeline: !Ref Pipeline
+      TargetAction: SourceAction
+      TargetPipelineVersion: !GetAtt Pipeline.Version
+      RegisterWithThirdParty: true
+
+  # ==========================================
+  # CLOUDWATCH ALARMS
+  # ==========================================
+  PipelineFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agni-crm-pipeline-failure
+      AlarmDescription: Alert when pipeline fails
+      MetricName: PipelineExecutionFailure
+      Namespace: AWS/CodePipeline
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: PipelineName
+          Value: !Ref Pipeline
+      AlarmActions:
+        - !Ref PipelineNotificationTopic
+
+  BuildFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: agni-crm-build-failure
+      AlarmDescription: Alert when CodeBuild fails
+      MetricName: FailedBuilds
+      Namespace: AWS/CodeBuild
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: ProjectName
+          Value: !Ref CodeBuildProject
+      AlarmActions:
+        - !Ref PipelineNotificationTopic
+
+# ==========================================
+# OUTPUTS
+# ==========================================
+Outputs:
+  PipelineUrl:
+    Description: URL to the CodePipeline console
+    Value: !Sub 'https://console.aws.amazon.com/codesuite/codepipeline/pipelines/${Pipeline}/view'
+
+  PipelineName:
+    Description: Name of the CodePipeline
+    Value: !Ref Pipeline
+
+  ArtifactBucketName:
+    Description: Name of the S3 bucket for artifacts
+    Value: !Ref ArtifactBucket
+
+  NotificationTopicArn:
+    Description: ARN of the SNS topic for notifications
+    Value: !Ref PipelineNotificationTopic
+
+  CodeBuildProjectName:
+    Description: Name of the main CodeBuild project
+    Value: !Ref CodeBuildProject
+
+  IntegrationTestProjectName:
+    Description: Name of the integration test CodeBuild project
+    Value: !Ref CodeBuildIntegrationTests
