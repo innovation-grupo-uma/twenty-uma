@@ -17,6 +17,7 @@ export enum SettingsPath {
   ObjectNewFieldConfigure = 'objects/:objectNamePlural/new-field/configure',
   ObjectFieldEdit = 'objects/:objectNamePlural/:fieldName',
   NewObject = 'objects/new',
+  DependentFields = 'objects/dependent-fields',
   WorkspaceMembersPage = 'members',
   WorkspaceMemberPage = 'members/:workspaceMemberId',
   Workspace = 'general',

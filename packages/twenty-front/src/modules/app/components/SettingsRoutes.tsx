@@ -270,6 +270,14 @@ const SettingsObjectFieldEdit = lazy(() =>
   ),
 );
 
+const SettingsDependentFields = lazy(() =>
+  import('~/pages/settings/data-model/SettingsDependentFields').then(
+    (module) => ({
+      default: module.SettingsDependentFields,
+    }),
+  ),
+);
+
 const SettingsSecurity = lazy(() =>
   import('~/pages/settings/security/SettingsSecurity').then((module) => ({
     default: module.SettingsSecurity,
@@ -509,6 +517,10 @@ export const SettingsRoutes = ({ isAdminPageEnabled }: SettingsRoutesProps) => (
         <Route
           path={SettingsPath.ObjectFieldEdit}
           element={<SettingsObjectFieldEdit />}
+        />
+        <Route
+          path={SettingsPath.DependentFields}
+          element={<SettingsDependentFields />}
         />
       </Route>
       <Route

@@ -27,10 +27,16 @@ Custom extensions are isolated in the `agni-extensions/` directory to minimize c
 - Conditional field visibility rules
 - Multi-tenant support (per workspace configuration)
 - Redis caching for performance
+- Admin UI for configuring rules
+- Real-time evaluation in forms
 
-**Status:** ⚠️ Not yet implemented
+**Status:** 🟢 Phase 1 & 2 Complete, Admin UI Complete (Phase 3 - TASK-108)
+- ✅ Backend infrastructure (metadata storage, GraphQL API, evaluator)
+- ✅ Frontend hooks and field integration
+- ✅ Admin configuration UI (TASK-108)
+- ⚠️ Comprehensive test suite pending
 
-**Documentation:** See [README](agni-extensions/dependent-fields/README.md)
+**Documentation:** See [README](agni-extensions/dependent-fields/README.md) and [frontend README](agni-extensions/dependent-fields/frontend/README.md)
 
 ### 2. Validation Engine Extension
 **Location:** `agni-extensions/validation-engine/`
@@ -241,26 +247,55 @@ This section documents all direct modifications to Twenty's core packages (`pack
 ---
 
 #### 7. Settings Module - Extension Configuration UIs
-**File:** `packages/twenty-front/src/modules/settings/data-model/` (new pages)
+**Files:**
+- `packages/twenty-front/src/modules/app/components/SettingsRoutes.tsx`
+- `packages/twenty-front/src/pages/settings/data-model/SettingsDependentFields.tsx`
+- `packages/twenty-shared/src/types/SettingsPath.ts`
 
-**Status:** ⚠️ Not yet modified
+**Status:** ✅ Modified (2026-02-02) - Dependent Fields UI Complete
 
 **Reason:** Add admin configuration pages for custom extensions
 
-**Changes:** *(To be documented when implemented)*
-- Add link to "Dependent Fields" configuration page
-- Add link to "Validation Rules" configuration page
-- Create new "Security" section in Settings
-- Add link to "Row-Level Security" configuration page
+**Changes:**
+- **SettingsPath.ts**: Added `DependentFields = 'objects/dependent-fields'` enum value
+- **SettingsRoutes.tsx**:
+  - Added lazy-loaded `SettingsDependentFields` component import
+  - Added route for dependent fields config page under `DATA_MODEL_SETTINGS` permission guard
+  - Route accessible at `/settings/objects/dependent-fields`
+- **SettingsDependentFields.tsx**: Created wrapper page component that renders `DependentFieldsConfig`
 
-**Risk Level:** 🟢 Low - Adding new pages, minimal modification to existing settings
+**Admin UI Features (Dependent Fields):**
+- Full CRUD interface for managing dependent field rules
+- Table view with search, filter, and bulk actions
+- Form for creating/editing rules with object and field selection
+- Mapping editor for defining controlling value → dependent value relationships
+- Support for both "Filter Values" and "Control Visibility" rule types
+- Real-time preview of rule effects
+- Activation/deactivation toggle for rules
+- Confirmation dialogs for destructive actions
+
+**Risk Level:** 🟢 Low - Adding new pages and routes, minimal modification to existing settings structure
 
 **Integration Points:**
-- `agni-extensions/dependent-fields/frontend/components/DependentFieldsConfig.tsx`
-- `agni-extensions/validation-engine/frontend/components/ValidationRulesConfig.tsx`
-- `agni-extensions/row-level-security/frontend/components/RLSRulesConfig.tsx`
+- `agni-extensions/dependent-fields/frontend/components/DependentFieldsConfig.tsx` (main UI)
+- `agni-extensions/dependent-fields/frontend/components/DependentFieldRulesTable.tsx` (table)
+- `agni-extensions/dependent-fields/frontend/components/DependentFieldRuleForm.tsx` (form)
+- `agni-extensions/dependent-fields/frontend/components/DependentFieldRuleMappingEditor.tsx` (mapping editor)
+- `agni-extensions/dependent-fields/frontend/graphql/` (GraphQL operations)
 
-**Testing:** E2E tests for configuration workflows
+**Permissions:**
+- Requires `PermissionFlagType.DATA_MODEL_SETTINGS` to access
+- Create/Update/Delete operations require `DATA_MODEL_SETTINGS` permission (enforced by backend guards)
+
+**Testing:**
+- Component integration tests in `agni-extensions/dependent-fields/tests/frontend/`
+- E2E tests for configuration workflows
+- User permission tests
+
+**Upstream Merge Notes:**
+- Watch for changes to SettingsPath enum (may require re-adding our path)
+- Watch for changes to SettingsRoutes structure (especially DATA_MODEL permission routes)
+- Low risk as we're only adding new routes, not modifying existing ones
 
 ---
 
@@ -452,6 +487,27 @@ Every time a core file is modified:
 
 ## Update History
 
+### 2026-02-02
+- **Action:** Completed TASK-108: Admin Configuration UI for Dependent Fields (Phase 3)
+- **Status:** Admin UI complete and integrated into Twenty settings
+- **Changes:**
+  - Created admin UI components:
+    - `DependentFieldsConfig.tsx` - Main page component
+    - `DependentFieldRulesTable.tsx` - Rules table with search and actions
+    - `DependentFieldRuleForm.tsx` - Create/edit form
+    - `DependentFieldRuleMappingEditor.tsx` - Mapping editor component
+  - Created GraphQL operations:
+    - Queries: `getDependentFieldRules`, `getDependentFieldRule`
+    - Mutations: `createDependentFieldRule`, `updateDependentFieldRule`, `deleteDependentFieldRule`
+    - Fragment: `dependentFieldRuleFragment`
+  - Integrated into Twenty settings:
+    - Added `DependentFields` to `SettingsPath` enum
+    - Added route in `SettingsRoutes.tsx` under DATA_MODEL permission guard
+    - Created page wrapper `SettingsDependentFields.tsx`
+  - Created comprehensive frontend README
+  - Updated AGNI_CUSTOMIZATIONS.md section #7 with full implementation details
+- **By:** Claude Code (Agni CRM Development Team)
+
 ### 2026-02-01
 - **Action:** Completed Phase 2 of Dependent Fields Extension (TASK-107)
 - **Status:** Core UI integration complete
@@ -526,6 +582,6 @@ For questions about this document or the customization strategy:
 
 ---
 
-**Last Updated:** 2026-02-01
-**Document Version:** 1.1.0
+**Last Updated:** 2026-02-02
+**Document Version:** 1.2.0
 **Maintained By:** Agni CRM Development Team
