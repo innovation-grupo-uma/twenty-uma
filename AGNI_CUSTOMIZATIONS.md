@@ -145,29 +145,80 @@ This section documents all direct modifications to Twenty's core packages (`pack
 
 ### Frontend Modifications (twenty-front)
 
-#### 4. Field Input Component - Dependent Fields UI
-**File:** `packages/twenty-front/src/modules/ui/field/input/components/FieldInput.tsx`
+#### 4. SelectFieldInput Component - Dependent Fields UI Integration
+**File:** `packages/twenty-front/src/modules/object-record/record-field/ui/meta-types/input/components/SelectFieldInput.tsx`
 
-**Status:** ⚠️ Not yet modified
+**Status:** ✅ Modified (2026-02-01)
 
-**Reason:** Apply dependent field rules in form inputs
+**Reason:** Apply dependent field rules to SELECT field inputs
 
-**Changes:** *(To be documented when implemented)*
-- Import and use `useDependentFields` hook
-- Filter SELECT field options based on dependent field rules
-- Apply visibility rules (show/hide fields conditionally)
-- Add loading state during rule evaluation
-- Implement graceful degradation on evaluation errors
+**Changes:**
+- Added imports:
+  - `useFindOneRecord` to fetch full record data
+  - `useSelectFieldWithDependentRules` custom hook for dependent field evaluation
+  - `FieldContext` to access record metadata
+- Modified component logic:
+  - Fetch current record using `useFindOneRecord` with `recordId` from `FieldContext`
+  - Call `useSelectFieldWithDependentRules` to evaluate dependent field rules
+  - Use `effectiveOptions` (filtered by rules) instead of all field options
+  - Hide field entirely when `isVisible: false` from visibility rules (return `null`)
+  - Graceful degradation: falls back to all options if no rules or record not loaded
+- Updated `selectedOption` to use `effectiveOptions` instead of `fieldDefinition.metadata.options`
+- Updated `<SelectInput>` component to receive `effectiveOptions`
 
-**Risk Level:** 🟡 Medium - Core UI component, may have upstream changes
+**Risk Level:** 🟡 Medium - Core UI component for SELECT fields, may have upstream changes
 
-**Integration Point:** `agni-extensions/dependent-fields/frontend/hooks/useDependentFields.ts`
+**Integration Points:**
+- `agni-extensions/dependent-fields/frontend/hooks/useSelectFieldWithDependentRules.ts` (custom hook)
+- `@/object-record/hooks/useFindOneRecord` (Twenty's existing hook)
+- `@/object-record/record-field/ui/contexts/FieldContext` (Twenty's existing context)
 
-**Testing:** Component tests in `agni-extensions/dependent-fields/tests/`
+**Testing:** Component tests and E2E tests in `agni-extensions/dependent-fields/tests/`
+
+**Upstream Merge Notes:**
+- Watch for changes to `SelectFieldInput` rendering logic
+- Watch for changes to how field options are passed to `SelectInput`
+- If upstream modifies field option filtering, our dependent field logic may need adjustment
 
 ---
 
-#### 5. Record Form - Validation Error Display
+#### 5. MultiSelectFieldInput Component - Dependent Fields UI Integration
+**File:** `packages/twenty-front/src/modules/object-record/record-field/ui/meta-types/input/components/MultiSelectFieldInput.tsx`
+
+**Status:** ✅ Modified (2026-02-01)
+
+**Reason:** Apply dependent field rules to MULTI-SELECT field inputs
+
+**Changes:**
+- Added imports:
+  - `useFindOneRecord` to fetch full record data
+  - `useSelectFieldWithDependentRules` custom hook for dependent field evaluation
+  - `FieldContext` to access record metadata
+- Modified component logic:
+  - Fetch current record using `useFindOneRecord` with `recordId` from `FieldContext`
+  - Call `useSelectFieldWithDependentRules` to evaluate dependent field rules
+  - Use `effectiveOptions` (filtered by rules) instead of all field options
+  - Hide field entirely when `isVisible: false` from visibility rules (return `null`)
+  - Graceful degradation: falls back to all options if no rules or record not loaded
+- Updated `<MultiSelectInput>` component to receive `effectiveOptions`
+
+**Risk Level:** 🟡 Medium - Core UI component for MULTI-SELECT fields, may have upstream changes
+
+**Integration Points:**
+- `agni-extensions/dependent-fields/frontend/hooks/useSelectFieldWithDependentRules.ts` (custom hook)
+- `@/object-record/hooks/useFindOneRecord` (Twenty's existing hook)
+- `@/object-record/record-field/ui/contexts/FieldContext` (Twenty's existing context)
+
+**Testing:** Component tests and E2E tests in `agni-extensions/dependent-fields/tests/`
+
+**Upstream Merge Notes:**
+- Watch for changes to `MultiSelectFieldInput` rendering logic
+- Watch for changes to how field options are passed to `MultiSelectInput`
+- If upstream modifies field option filtering, our dependent field logic may need adjustment
+
+---
+
+#### 6. Record Form - Validation Error Display
 **File:** `packages/twenty-front/src/modules/object-record/record-form/` (integration point)
 
 **Status:** ⚠️ Not yet modified
@@ -189,7 +240,7 @@ This section documents all direct modifications to Twenty's core packages (`pack
 
 ---
 
-#### 6. Settings Module - Extension Configuration UIs
+#### 7. Settings Module - Extension Configuration UIs
 **File:** `packages/twenty-front/src/modules/settings/data-model/` (new pages)
 
 **Status:** ⚠️ Not yet modified
@@ -215,7 +266,7 @@ This section documents all direct modifications to Twenty's core packages (`pack
 
 ### Database Schema Modifications
 
-#### 7. New Metadata Tables
+#### 8. New Metadata Tables
 **Location:** `packages/twenty-server/src/database/typeorm/metadata/`
 
 **Status:** ⚠️ Not yet created
@@ -401,6 +452,18 @@ Every time a core file is modified:
 
 ## Update History
 
+### 2026-02-01
+- **Action:** Completed Phase 2 of Dependent Fields Extension (TASK-107)
+- **Status:** Core UI integration complete
+- **Changes:**
+  - Modified `SelectFieldInput.tsx` to integrate dependent field filtering
+  - Modified `MultiSelectFieldInput.tsx` to integrate dependent field filtering
+  - Created `useSelectFieldWithDependentRules.ts` hook
+  - Updated AGNI_CUSTOMIZATIONS.md sections #4 and #5
+  - Updated agni-extensions/dependent-fields/README.md with comprehensive documentation
+  - Updated agni-extensions/dependent-fields/IMPLEMENTATION.md
+- **By:** Claude Code (Agni CRM Development Team)
+
 ### 2026-01-26
 - **Action:** Created AGNI_CUSTOMIZATIONS.md
 - **Status:** Initial document creation
@@ -463,6 +526,6 @@ For questions about this document or the customization strategy:
 
 ---
 
-**Last Updated:** 2026-01-26
-**Document Version:** 1.0.0
+**Last Updated:** 2026-02-01
+**Document Version:** 1.1.0
 **Maintained By:** Agni CRM Development Team

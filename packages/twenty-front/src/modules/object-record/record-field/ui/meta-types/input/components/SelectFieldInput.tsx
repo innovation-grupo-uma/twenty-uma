@@ -1,5 +1,7 @@
 import { t } from '@lingui/core/macro';
 import { FieldInputEventContext } from '@/object-record/record-field/ui/contexts/FieldInputEventContext';
+import { FieldContext } from '@/object-record/record-field/ui/contexts/FieldContext';
+import { useFindOneRecord } from '@/object-record/hooks/useFindOneRecord';
 import { useClearField } from '@/object-record/record-field/ui/hooks/useClearField';
 import { useAddSelectOption } from '@/object-record/record-field/ui/meta-types/hooks/useAddSelectOption';
 import { useCanAddSelectOption } from '@/object-record/record-field/ui/meta-types/hooks/useCanAddSelectOption';
@@ -14,6 +16,7 @@ import { useContext, useState } from 'react';
 import { Key } from 'ts-key-enum';
 import { isDefined } from 'twenty-shared/utils';
 import { type SelectOption } from 'twenty-ui/input';
+import { useSelectFieldWithDependentRules } from 'agni-extensions/dependent-fields/frontend/hooks/useSelectFieldWithDependentRules';
 
 export const SelectFieldInput = () => {
   const { fieldDefinition, fieldValue } = useSelectField();
@@ -25,6 +28,7 @@ export const SelectFieldInput = () => {
   );
 
   const { onCancel, onSubmit } = useContext(FieldInputEventContext);
+  const fieldContext = useContext(FieldContext);
 
   const instanceId = useAvailableComponentInstanceIdOrThrow(
     RecordFieldComponentInstanceContext,
@@ -37,9 +41,30 @@ export const SelectFieldInput = () => {
   );
   const clearField = useClearField();
 
-  const selectedOption = fieldDefinition.metadata.options.find(
+  // Get record data to access controlling field values
+  const { record } = useFindOneRecord({
+    objectNameSingular: fieldContext?.fieldDefinition?.metadata?.objectMetadataItem?.nameSingular || '',
+    objectRecordId: fieldContext?.recordId,
+    skip: !fieldContext?.recordId,
+  });
+
+  // Apply dependent field rules to filter options
+  const dependentFieldResult = useSelectFieldWithDependentRules(
+    fieldContext?.fieldDefinition?.metadata?.objectMetadataItem?.nameSingular || '',
+    fieldDefinition?.metadata?.fieldName || '',
+    fieldDefinition.metadata.options,
+    record,
+  );
+
+  // Use dependent-filtered options if rules apply, otherwise use all options
+  const effectiveOptions = dependentFieldResult.hasDependentRules
+    ? dependentFieldResult.options
+    : fieldDefinition.metadata.options;
+
+  const selectedOption = effectiveOptions.find(
     (option) => option.value === fieldValue,
   );
+
   // handlers
   const handleClearField = () => {
     clearField();
@@ -75,6 +100,11 @@ export const SelectFieldInput = () => {
     ...filteredOptions.map((option) => option.value),
   ];
 
+  // Hide field if dependent field rules say it should be hidden
+  if (dependentFieldResult.hasDependentRules && !dependentFieldResult.isVisible) {
+    return null;
+  }
+
   return (
     <SelectInput
       selectableListComponentInstanceId={
@@ -91,7 +121,7 @@ export const SelectFieldInput = () => {
         }
       }}
       onOptionSelected={handleSubmit}
-      options={fieldDefinition.metadata.options}
+      options={effectiveOptions}
       onCancel={onCancel}
       defaultOption={selectedOption}
       onFilterChange={setFilteredOptions}
