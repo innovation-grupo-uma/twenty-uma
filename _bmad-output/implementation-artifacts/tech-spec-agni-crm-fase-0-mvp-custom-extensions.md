@@ -236,7 +236,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
 
 **Fase Preparación: Fork y Configuración Base**
 
-- [ ] **TASK-001: Crear Fork y Estructura Base**
+- [X] **TASK-001: Crear Fork y Estructura Base**
   - File: Repositorio nuevo `agni-crm-twenty`
   - Action: Fork de `https://github.com/twentyhq/twenty` en tag `v1.15.0`
   - Action: Configurar remotes: `upstream` (twentyhq/twenty) y `origin` (agni fork)
@@ -244,7 +244,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: Crear directorio `agni-extensions/` en root del monorepo
   - Notes: Documentar estrategia de branches en README.md del fork
 
-- [ ] **TASK-002: Crear Estructura de Extensiones**
+- [X] **TASK-002: Crear Estructura de Extensiones**
   - File: `agni-extensions/dependent-fields/`
   - File: `agni-extensions/validation-engine/`
   - File: `agni-extensions/row-level-security/`
@@ -270,7 +270,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
   - Action: Crear `README.md` en cada extensión documentando propósito y arquitectura
   - Notes: Cada extensión tendrá backend (NestJS), frontend (React), shared (tipos TS), tests (Jest)
 
-- [ ] **TASK-003: Crear Documento de Customizaciones**
+- [X] **TASK-003: Crear Documento de Customizaciones**
   - File: `AGNI_CUSTOMIZATIONS.md` en root del fork
   - Action: Documentar template para tracking de cambios custom vs upstream:
     ```markdown
@@ -291,7 +291,7 @@ agni-crm-twenty/  (fork de twentyhq/twenty@v1.15.0)
     ```
   - Notes: Actualizar este documento cada vez que se modifique código de Twenty
 
-- [ ] **TASK-004: Configurar CI/CD para el Fork**
+- [X] **TASK-004: Configurar CI/CD para el Fork**
   - File: `.github/workflows/agni-ci.yml`
   - Action: Crear workflow CI que ejecute:
     - Tests de Twenty (asegurar no romper funcionalidad base)
