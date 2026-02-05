@@ -3,16 +3,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { RLSRuleEntity } from './rls-rule.entity';
 import { RLSRuleService } from '../../../../../agni-extensions/row-level-security/backend/rls-rule.service';
+import { RLSEngineService } from '../../../../../agni-extensions/row-level-security/backend/rls-engine.service';
+import { RLSRulesCacheService } from '../../../../../agni-extensions/row-level-security/backend/rls-cache.service';
 
 /**
  * RLS Rule Module
  * Agni CRM Extension - Row-Level Security
  * 
- * Provides RLS rule storage and management functionality
+ * Provides RLS rule storage, caching, and evaluation functionality
  */
 @Module({
   imports: [TypeOrmModule.forFeature([RLSRuleEntity])],
-  providers: [RLSRuleService],
-  exports: [RLSRuleService],
+  providers: [RLSRuleService, RLSEngineService, RLSRulesCacheService],
+  exports: [RLSRuleService, RLSEngineService, RLSRulesCacheService],
 })
 export class RLSRuleModule {}
