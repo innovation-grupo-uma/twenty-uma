@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { RLSRuleEntity } from '../../../packages/twenty-server/src/engine/metadata-modules/row-level-security/rls-rule.entity';
 import { WorkspaceCache } from '../../../packages/twenty-server/src/engine/workspace-cache/decorators/workspace-cache.decorator';
 import { WorkspaceCacheProvider } from '../../../packages/twenty-server/src/engine/workspace-cache/interfaces/workspace-cache-provider.service';
+import { WorkspaceCacheService } from '../../../packages/twenty-server/src/engine/workspace-cache/services/workspace-cache.service';
 
 /**
  * RLS Rules Cache Maps Type
@@ -27,6 +28,7 @@ export class RLSRulesCacheService extends WorkspaceCacheProvider<RLSRulesCacheMa
   constructor(
     @InjectRepository(RLSRuleEntity)
     private readonly rlsRuleRepository: Repository<RLSRuleEntity>,
+    private readonly workspaceCacheService: WorkspaceCacheService,
   ) {
     super();
   }
@@ -78,17 +80,20 @@ export class RLSRulesCacheService extends WorkspaceCacheProvider<RLSRulesCacheMa
     objectMetadataId: string,
     roleIds: string[],
   ): Promise<RLSRuleEntity[]> {
-    const cache = await this.get(workspaceId);
+    const { rlsRulesMaps } = await this.workspaceCacheService.getOrRecompute(
+      workspaceId,
+      ['rlsRulesMaps'],
+    );
 
-    if (!cache) {
+    if (!rlsRulesMaps) {
       return [];
     }
 
-    const objectRuleIds = cache.byObjectMetadataId[objectMetadataId] || [];
+    const objectRuleIds = rlsRulesMaps.byObjectMetadataId[objectMetadataId] || [];
     const relevantRules: RLSRuleEntity[] = [];
 
     for (const ruleId of objectRuleIds) {
-      const rule = cache.byId[ruleId];
+      const rule = rlsRulesMaps.byId[ruleId];
 
       if (rule && rule.roleIds.some((roleId) => roleIds.includes(roleId))) {
         relevantRules.push(rule);
@@ -96,5 +101,14 @@ export class RLSRulesCacheService extends WorkspaceCacheProvider<RLSRulesCacheMa
     }
 
     return relevantRules;
+  }
+
+  /**
+   * Invalidate cache for a workspace (call when rules change)
+   */
+  async invalidateCache(workspaceId: string): Promise<void> {
+    await this.workspaceCacheService.invalidateAndRecompute(workspaceId, [
+      'rlsRulesMaps',
+    ]);
   }
 }

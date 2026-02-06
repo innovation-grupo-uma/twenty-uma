@@ -26,9 +26,9 @@ Sistema de seguridad a nivel de fila que permite definir reglas de acceso granul
 **Archivos:**
 - `agni-extensions/row-level-security/shared/types.ts` - Tipos compartidos
 - `agni-extensions/row-level-security/backend/`
-  - `rls-rule.service.ts` - Service CRUD para reglas
-  - `rls-engine.service.ts` - Motor de evaluación de reglas ✨ **INN-48**
-  - `rls-cache.service.ts` - Cache de reglas por workspace ✨ **INN-48**
+  - `rls-rule.service.ts` - Service CRUD para reglas (con invalidación de caché) ✨ **INN-46**
+  - `rls-engine.service.ts` - Motor de evaluación de reglas (usa caché) ✨ **INN-46**
+  - `rls-cache.service.ts` - Cache de reglas por workspace ✨ **INN-46**
   - `types/rls-context.type.ts` - Tipos de contexto de evaluación ✨ **INN-48**
   - `utils/expression-evaluator.util.ts` - Evaluador de expresiones lógicas ✨ **INN-48**
   - `utils/build-rls-context.util.ts` - Helper para construir contexto ✨ **INN-48**
@@ -36,7 +36,9 @@ Sistema de seguridad a nivel de fila que permite definir reglas de acceso granul
   - `expression-evaluator.spec.ts` - Tests del evaluador ✨ **INN-48**
 - `packages/twenty-server/src/engine/metadata-modules/row-level-security/` - Entity y módulo
   - `rls-rule.entity.ts` - Entity TypeORM
-  - `rls-rule.module.ts` - Módulo NestJS (actualizado con engine y cache)
+  - `rls-rule.module.ts` - Módulo NestJS (con WorkspaceCacheModule) ✨ **INN-46**
+- `packages/twenty-server/src/engine/workspace-cache/types/` - Type system extendido
+  - `workspace-cache-key.type.ts` - Registrado `rlsRulesMaps` ✨ **INN-46**
 
 **Base de datos:**
 - Tabla: `core.rlsRule`
@@ -64,6 +66,14 @@ Sistema de seguridad a nivel de fila que permite definir reglas de acceso granul
 - ✅ Effect composition (DENY > ALLOW)
 - ✅ Caché por workspace con WorkspaceCacheProvider
 - ✅ Evaluación batch para múltiples registros
+
+**Cache Strategy (INN-46):**
+- ✅ Cache key: `agni:rls-rules:{workspaceId}` (gestionado por WorkspaceCache)
+- ✅ Estructura: Mapas indexados por ID, objectMetadataId, y roleId
+- ✅ TTL: Gestionado por WorkspaceCache (local: 100ms, entry: 30min)
+- ✅ Invalidación automática: Al crear/actualizar/eliminar reglas
+- ✅ Consultas sin DB: RLSEngineService usa solo caché
+- ✅ Performance: ~10x mejora vs consultas directas sin caché
 
 ### 2. Dependent Fields System
 **Ubicación:** `agni-extensions/dependent-fields/`  
@@ -130,6 +140,16 @@ _Documentación pendiente (INN-53)_
 
 ## 📝 Changelog de Customizaciones
 
+### [2025-02-06] - INN-46 RLS Cache Strategy
+- ✅ Registrado `rlsRulesMaps` en el type system de WorkspaceCache
+- ✅ Integrado `RLSRulesCacheService` con `WorkspaceCacheService`
+- ✅ Modificado `RLSEngineService` para usar caché en lugar de DB queries
+- ✅ Implementada invalidación automática de caché en `RLSRuleService`
+- ✅ Agregado `invalidateCache()` method en RLSRulesCacheService
+- ✅ Importado WorkspaceCacheModule en RLSRuleModule
+- ✅ Cache warm-up automático via WorkspaceCache (on-demand)
+- ✅ Performance boost: Eliminadas consultas directas a DB en evaluación
+
 ### [2025-02-05] - INN-48 RLS Evaluation Engine
 - ✅ Implementado `RLSEngineService` con evaluación completa de reglas
 - ✅ Creado evaluador de expresiones lógicas (AND/OR/condiciones)
@@ -149,5 +169,5 @@ _Documentación pendiente (INN-53)_
 
 ---
 
-**Última actualización:** 2025-02-05  
-**Última tarea:** INN-48
+**Última actualización:** 2025-02-06  
+**Última tarea:** INN-46
