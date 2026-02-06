@@ -11,6 +11,7 @@ import { type UserWorkspaceRoleMap } from 'src/engine/metadata-modules/role-targ
 import { type FlatRowLevelPermissionPredicateGroupMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-group-maps.type';
 import { type FlatRowLevelPermissionPredicateMaps } from 'src/engine/metadata-modules/row-level-permission-predicate/types/flat-row-level-permission-predicate-maps.type';
 import { type ServerlessFunctionLayerCacheMaps } from 'src/engine/metadata-modules/serverless-function-layer/types/serverless-function-layer-cache-maps.type';
+import { type RLSRulesCacheMaps } from '../../../../../../agni-extensions/row-level-security/backend/rls-cache.service';
 
 export const WORKSPACE_CACHE_KEYS_V2 = {
   flatObjectMetadataMaps: 'flat-maps:object-metadata',
@@ -49,6 +50,7 @@ export const WORKSPACE_CACHE_KEYS_V2 = {
   flatWorkspaceMemberMaps: 'flat-maps:workspace-member',
   serverlessFunctionLayerMaps: 'cache:serverless-function-layer',
   applicationVariableMaps: 'cache:application-variable',
+  rlsRulesMaps: 'agni:rls-rules',
 } as const satisfies Record<WorkspaceCacheKeyName, string>;
 
 export type AdditionalCacheDataMaps = {
@@ -64,6 +66,7 @@ export type AdditionalCacheDataMaps = {
   flatWorkspaceMemberMaps: FlatWorkspaceMemberMaps;
   serverlessFunctionLayerMaps: ServerlessFunctionLayerCacheMaps;
   applicationVariableMaps: ApplicationVariableCacheMaps;
+  rlsRulesMaps: RLSRulesCacheMaps;
 };
 
 export type WorkspaceCacheDataMap = AllFlatEntityMaps & AdditionalCacheDataMaps;

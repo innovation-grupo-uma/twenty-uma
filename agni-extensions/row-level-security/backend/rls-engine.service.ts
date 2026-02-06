@@ -6,6 +6,7 @@ import { RLSRuleEntity } from '../../../packages/twenty-server/src/engine/metada
 import { RLSEffect, RLSOperation } from '../shared/types';
 import { RLSContext, RLSEvaluationResult } from './types/rls-context.type';
 import { evaluateExpression } from './utils/expression-evaluator.util';
+import { RLSRulesCacheService } from './rls-cache.service';
 
 /**
  * RLS Evaluation Engine Service
@@ -20,6 +21,7 @@ export class RLSEngineService {
   constructor(
     @InjectRepository(RLSRuleEntity)
     private readonly rlsRuleRepository: Repository<RLSRuleEntity>,
+    private readonly rlsRulesCacheService: RLSRulesCacheService,
   ) {}
 
   /**
@@ -117,7 +119,7 @@ export class RLSEngineService {
   }
 
   /**
-   * Get all applicable rules for the given parameters
+   * Get all applicable rules for the given parameters (from cache)
    */
   private async getApplicableRules(
     workspaceId: string,
@@ -125,17 +127,23 @@ export class RLSEngineService {
     roleIds: string[],
     operation: RLSOperation,
   ): Promise<RLSRuleEntity[]> {
-    return await this.rlsRuleRepository
-      .createQueryBuilder('rule')
-      .where('rule.workspaceId = :workspaceId', { workspaceId })
-      .andWhere('rule.objectMetadataId = :objectMetadataId', {
-        objectMetadataId,
-      })
-      .andWhere('rule.isActive = :isActive', { isActive: true })
-      .andWhere('rule.roleIds && :roleIds', { roleIds })
-      .andWhere(':operation = ANY(rule.operations)', { operation })
-      .orderBy('rule.priority', 'DESC')
-      .getMany();
+    // Get rules from cache
+    const allRules = await this.rlsRulesCacheService.getRulesForObjectAndRoles(
+      workspaceId,
+      objectMetadataId,
+      roleIds,
+    );
+
+    // Filter by operation
+    const applicableRules = allRules.filter((rule) =>
+      rule.operations.includes(operation),
+    );
+
+    this.logger.debug(
+      `Retrieved ${applicableRules.length} applicable rules from cache for object ${objectMetadataId}, operation ${operation}`,
+    );
+
+    return applicableRules;
   }
 
   /**

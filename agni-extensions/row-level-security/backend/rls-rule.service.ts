@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -7,6 +7,7 @@ import {
   CreateRLSRuleInput,
   UpdateRLSRuleInput,
 } from '../shared/types';
+import { RLSRulesCacheService } from './rls-cache.service';
 
 /**
  * RLS Rule Service
@@ -16,9 +17,12 @@ import {
  */
 @Injectable()
 export class RLSRuleService {
+  private readonly logger = new Logger(RLSRuleService.name);
+
   constructor(
     @InjectRepository(RLSRuleEntity)
     private readonly rlsRuleRepository: Repository<RLSRuleEntity>,
+    private readonly rlsRulesCacheService: RLSRulesCacheService,
   ) {}
 
   /**
@@ -38,7 +42,13 @@ export class RLSRuleService {
       isActive: true,
     });
 
-    return await this.rlsRuleRepository.save(rule);
+    const savedRule = await this.rlsRuleRepository.save(rule);
+
+    // Invalidate cache for this workspace
+    await this.rlsRulesCacheService.invalidateCache(input.workspaceId);
+    this.logger.log(`RLS cache invalidated for workspace ${input.workspaceId} after rule creation`);
+
+    return savedRule;
   }
 
   /**
@@ -90,6 +100,8 @@ export class RLSRuleService {
       throw new Error(`RLS Rule with ID ${id} not found`);
     }
 
+    const workspaceId = rule.workspaceId;
+
     // Update only provided fields
     if (input.name !== undefined) rule.name = input.name;
     if (input.description !== undefined) rule.description = input.description;
@@ -100,27 +112,63 @@ export class RLSRuleService {
     if (input.isActive !== undefined) rule.isActive = input.isActive;
     if (input.roleIds !== undefined) rule.roleIds = input.roleIds;
 
-    return await this.rlsRuleRepository.save(rule);
+    const updatedRule = await this.rlsRuleRepository.save(rule);
+
+    // Invalidate cache for this workspace
+    await this.rlsRulesCacheService.invalidateCache(workspaceId);
+    this.logger.log(`RLS cache invalidated for workspace ${workspaceId} after rule update`);
+
+    return updatedRule;
   }
 
   /**
    * Delete a rule (soft delete by marking as inactive)
    */
   async deleteRule(id: string): Promise<boolean> {
+    // Get rule first to obtain workspaceId
+    const rule = await this.rlsRuleRepository.findOne({ where: { id } });
+
+    if (!rule) {
+      return false;
+    }
+
     const result = await this.rlsRuleRepository.update(id, {
       isActive: false,
     });
 
-    return result.affected === 1;
+    const success = result.affected === 1;
+
+    if (success) {
+      // Invalidate cache for this workspace
+      await this.rlsRulesCacheService.invalidateCache(rule.workspaceId);
+      this.logger.log(`RLS cache invalidated for workspace ${rule.workspaceId} after rule soft delete`);
+    }
+
+    return success;
   }
 
   /**
    * Hard delete a rule (permanently remove from database)
    */
   async hardDeleteRule(id: string): Promise<boolean> {
+    // Get rule first to obtain workspaceId
+    const rule = await this.rlsRuleRepository.findOne({ where: { id } });
+
+    if (!rule) {
+      return false;
+    }
+
     const result = await this.rlsRuleRepository.delete(id);
 
-    return result.affected === 1;
+    const success = result.affected === 1;
+
+    if (success) {
+      // Invalidate cache for this workspace
+      await this.rlsRulesCacheService.invalidateCache(rule.workspaceId);
+      this.logger.log(`RLS cache invalidated for workspace ${rule.workspaceId} after rule hard delete`);
+    }
+
+    return success;
   }
 
   /**
