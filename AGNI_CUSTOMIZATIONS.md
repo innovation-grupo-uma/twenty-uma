@@ -29,16 +29,23 @@ Sistema de seguridad a nivel de fila que permite definir reglas de acceso granul
   - `rls-rule.service.ts` - Service CRUD para reglas (con invalidación de caché) ✨ **INN-46**
   - `rls-engine.service.ts` - Motor de evaluación de reglas (usa caché) ✨ **INN-46**
   - `rls-cache.service.ts` - Cache de reglas por workspace ✨ **INN-46**
+  - `rls-rule.resolver.ts` - Resolver GraphQL para API de RLS ✨ **INN-45**
+  - `dtos/` - DTOs para GraphQL ✨ **INN-45**
+    - `create-rls-rule.dto.ts` - Input para crear regla
+    - `update-rls-rule.dto.ts` - Input para actualizar regla
+    - `get-rls-rule.dto.ts` - Inputs para obtener/eliminar reglas
+    - `test-rls-rule.dto.ts` - Input y resultado para testing de reglas
   - `types/rls-context.type.ts` - Tipos de contexto de evaluación ✨ **INN-48**
   - `utils/expression-evaluator.util.ts` - Evaluador de expresiones lógicas ✨ **INN-48**
   - `utils/build-rls-context.util.ts` - Helper para construir contexto ✨ **INN-48**
 - `agni-extensions/row-level-security/tests/`
   - `expression-evaluator.spec.ts` - Tests del evaluador ✨ **INN-48**
 - `packages/twenty-server/src/engine/metadata-modules/row-level-security/` - Entity y módulo
-  - `rls-rule.entity.ts` - Entity TypeORM
-  - `rls-rule.module.ts` - Módulo NestJS (con WorkspaceCacheModule) ✨ **INN-46**
+  - `rls-rule.entity.ts` - Entity TypeORM (con decoradores GraphQL) ✨ **INN-45**
+  - `rls-rule.module.ts` - Módulo NestJS (con Resolver y WorkspaceCacheModule) ✨ **INN-45/46**
 - `packages/twenty-server/src/engine/workspace-cache/types/` - Type system extendido
   - `workspace-cache-key.type.ts` - Registrado `rlsRulesMaps` ✨ **INN-46**
+- `packages/twenty-server/src/engine/metadata-modules/metadata-engine.module.ts` - Registro de módulo RLS ✨ **INN-45**
 
 **Base de datos:**
 - Tabla: `core.rlsRule`
@@ -74,6 +81,20 @@ Sistema de seguridad a nivel de fila que permite definir reglas de acceso granul
 - ✅ Invalidación automática: Al crear/actualizar/eliminar reglas
 - ✅ Consultas sin DB: RLSEngineService usa solo caché
 - ✅ Performance: ~10x mejora vs consultas directas sin caché
+
+**GraphQL API (INN-45):**
+- ✅ **Mutations:**
+  - `createRLSRule(input: CreateRLSRuleInput): RLSRule` - Crear regla
+  - `updateRLSRule(input: UpdateRLSRuleInput): RLSRule` - Actualizar regla
+  - `deleteRLSRule(input: DeleteRLSRuleInput): Boolean` - Eliminar regla (soft delete)
+- ✅ **Queries:**
+  - `getRLSRule(input: GetRLSRuleInput): RLSRule` - Obtener regla por ID
+  - `getRLSRules(input: GetRLSRulesByObjectInput): [RLSRule]` - Reglas por objeto
+  - `getRLSRulesByWorkspace(): [RLSRule]` - Todas las reglas del workspace
+  - `testRLSRule(input: TestRLSRuleInput): RLSTestResult` - Testing de reglas antes de activar
+- ✅ **Seguridad:** Solo workspace owners (WorkspaceAuthGuard)
+- ✅ **Scope:** Todas las operaciones limitadas al workspace actual
+- ✅ **Testing:** testRLSRule permite probar reglas con contexto custom antes de activarlas
 
 ### 2. Dependent Fields System
 **Ubicación:** `agni-extensions/dependent-fields/`  
@@ -140,7 +161,18 @@ _Documentación pendiente (INN-53)_
 
 ## 📝 Changelog de Customizaciones
 
-### [2025-02-06] - INN-46 RLS Cache Strategy
+### [2026-02-06] - INN-45 GraphQL API RLS
+- ✅ Creado resolver GraphQL `RLSRuleResolver` con todos los endpoints
+- ✅ Implementados DTOs de input/output (Create, Update, Get, Delete, Test)
+- ✅ Agregados decoradores GraphQL (@Field, @ObjectType) a RLSRuleEntity
+- ✅ Registrado RLSRuleResolver en RLSRuleModule
+- ✅ Importado RLSRuleModule en MetadataEngineModule (expuesto al GraphQL gateway)
+- ✅ Implementada seguridad: solo workspace owners, scope por workspace
+- ✅ Agregado endpoint testRLSRule para testing de reglas antes de activar
+- ✅ Soporte para JSON expressions vía GraphQLJSONObject
+- ✅ API lista para consumo desde frontend
+
+### [2026-02-06] - INN-46 RLS Cache Strategy
 - ✅ Registrado `rlsRulesMaps` en el type system de WorkspaceCache
 - ✅ Integrado `RLSRulesCacheService` con `WorkspaceCacheService`
 - ✅ Modificado `RLSEngineService` para usar caché en lugar de DB queries
@@ -169,5 +201,5 @@ _Documentación pendiente (INN-53)_
 
 ---
 
-**Última actualización:** 2025-02-06  
-**Última tarea:** INN-46
+**Última actualización:** 2026-02-06  
+**Última tarea:** INN-45

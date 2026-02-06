@@ -13,6 +13,7 @@ import { FrontComponentModule } from 'src/engine/metadata-modules/front-componen
 import { ObjectMetadataModule } from 'src/engine/metadata-modules/object-metadata/object-metadata.module';
 import { PermissionsModule } from 'src/engine/metadata-modules/permissions/permissions.module';
 import { RoleModule } from 'src/engine/metadata-modules/role/role.module';
+import { RLSRuleModule } from 'src/engine/metadata-modules/row-level-security/rls-rule.module';
 import { RouteTriggerModule } from 'src/engine/metadata-modules/route-trigger/route-trigger.module';
 import { SearchFieldMetadataModule } from 'src/engine/metadata-modules/search-field-metadata/search-field-metadata.module';
 import { ServerlessFunctionLayerModule } from 'src/engine/metadata-modules/serverless-function-layer/serverless-function-layer.module';
@@ -39,6 +40,7 @@ import { WorkspaceMetadataVersionModule } from 'src/engine/metadata-modules/work
     ViewModule,
     WorkspaceMetadataVersionModule,
     RoleModule,
+    RLSRuleModule,
     PermissionsModule,
     RouteTriggerModule,
     CronTriggerModule,
@@ -59,6 +61,7 @@ import { WorkspaceMetadataVersionModule } from 'src/engine/metadata-modules/work
     AiChatModule,
     ViewModule,
     RoleModule,
+    RLSRuleModule,
     PermissionsModule,
   ],
 })
